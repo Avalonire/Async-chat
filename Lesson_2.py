@@ -13,6 +13,17 @@
 а также сохранение подготовленных данных в соответствующий CSV-файл;
 Проверить работу программы через вызов функции write_to_csv().
 """
+# def get_data(files):
+#     os_prod_list = []
+#     os_name_list = []
+#     os_code_list = []
+#     os_type_list = []
+#     for file in files:
+#         with open('file') as f:
+import os
+fil = sorted(os.listdir('.'))
+print(fil)
+
 
 """
 ### 2. Задание на закрепление знаний по модулю json. Есть файл orders в
@@ -23,6 +34,9 @@
 При записи данных указать величину отступа в 4 пробельных символа;
 Проверить работу программы через вызов функции write_order_to_json() с передачей в нее значений каждого параметра.
 """
+
+def write_order_to_json(item, quantity, price, buyer, date):
+
 
 """
  ### 3. Задание на закрепление знаний по модулю yaml.
