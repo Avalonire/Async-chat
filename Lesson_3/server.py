@@ -1,24 +1,34 @@
 import json
 from socket import *
-import time
+from json_msgs import response_200_msg
 import argparse
 
-parser = argparse.ArgumentParser(description="port and address")
 
-parser.add_argument("-p", dest="port", default=7777, type=int)
-parser.add_argument("-a", dest="addr", default='')
+def get_params():
+    parser = argparse.ArgumentParser(description="port and address")
 
-args = parser.parse_args()
+    parser.add_argument("-a", dest="addr", default='')
+    parser.add_argument("-p", dest="port", default=7777, type=int)
+
+    args = parser.parse_args()
+    return args
 
 
-def main():
+def run_socket(addr, port, listen_num: int = None):
     s = socket(AF_INET, SOCK_STREAM)
-    s.bind((args.addr, args.port))
-    s.listen(5)
+    s.bind((addr, port))
+    if listen_num:
+        s.listen(listen_num)
+    return s
 
-    client, addr = s.accept()
-    print('Получаем запрос на соединение:', addr)
 
+def get_client(params):
+    client, addr = run_socket(params.addr, params.port, 5).accept()
+    return client
+
+
+def get_msg(client):
+    print('Получаем запрос на соединение:', client)
     data = client.recv(100000)
     data_decoded = json.loads(data.decode('utf-8'))
     print('Было получено сообщение: ', data_decoded)
@@ -26,11 +36,15 @@ def main():
         client.close()
         return
     if data_decoded['action'] == 'presence':
-        re_msg = {
-            "response": 200,
-            "time": time.time(),
-        }
-        client.send(json.dumps(re_msg).encode('utf-8'))
+        msg = response_200_msg
+        client.send(json.dumps(msg).encode('utf-8'))
+    return data_decoded
+
+
+def main():
+    params = get_params()
+    client = get_client(params)
+    get_msg(client)
 
 
 if __name__ == '__main__':

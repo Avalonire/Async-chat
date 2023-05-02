@@ -1,30 +1,28 @@
 import json
 from socket import *
-import time
+from json_msgs import presence_msg
 import argparse
 
-parser = argparse.ArgumentParser(description="port and address")
 
-parser.add_argument("-a", dest="addr", required=True)
-parser.add_argument("-p", dest="port", default=7777, type=int)
+def get_params():
+    parser = argparse.ArgumentParser(description="port and address")
 
-args = parser.parse_args()
+    parser.add_argument("-a", dest="addr", default='localhost')
+    parser.add_argument("-p", dest="port", default=7777, type=int)
+
+    args = parser.parse_args()
+    return args
+
+
+def connect_socket(addr, port):
+    s = socket(AF_INET, SOCK_STREAM)
+    s.connect((addr, port))
+    return s
 
 
 def main():
-    s = socket(AF_INET, SOCK_STREAM)
-    s.connect((args.addr, args.port))
-
-    presence_msg = {
-        "action": "presence",
-        "time": time.time(),
-        "type": "status",
-        "user": {
-            "account_name": "Avalon",
-            "status": "I'm here!"
-        }
-    }
-
+    params = get_params()
+    s = connect_socket(params.addr, params.port)
     msg_enc = json.dumps(presence_msg).encode('utf-8')
     s.send(msg_enc)
     data = s.recv(10000)
