@@ -1,13 +1,22 @@
-class Log:
-    def __init__(self) -> None:
-        pass
+import logging
+from functools import wraps
+import server_log_config
+import traceback
 
-    def __call__(self, func):
-        def wrapper(*args, **kwargs):
-            print(f'Вызов {func.__name__} {args} {kwargs}')
-            r = func(*args, **kwargs)
-            print(f'{func.__name__} вернула {r}')
-            return r
+
+def logged(name):
+    def wrap(func):
+        logger = logging.getLogger(name)
+
+        @wraps(func)
+        def wrapper(*args):
+            stack = traceback.extract_stack()
+            logger.debug(f'Call: {func.__name__}\n'
+                         f'{" " * 43}With args: {args}\n'
+                         f'{" " * 43}From: {stack[-2][2]}()')
+            f = func(*args)
+            return f
 
         return wrapper
-    
+
+    return wrap
