@@ -4,10 +4,12 @@ from json_msgs import presence_msg
 import argparse
 import logging
 import client_log_config
+from log_decor import logged
 
 logger = logging.getLogger('client')
 
 
+@logged(name='client')
 def get_params():
     parser = argparse.ArgumentParser(description="port and address")
 
@@ -18,13 +20,15 @@ def get_params():
     return args
 
 
+@logged(name='client')
 def connect_socket(addr, port):
     s = socket(AF_INET, SOCK_STREAM)
     s.connect((addr, port))
-    logger.debug('Соединение с сервером %s, порт: %d', addr, port)
+    # logger.debug('Соединение с сервером %s, порт: %d', addr, port)
     return s
 
 
+@logged(name='client')
 def main():
     params = get_params()
     s = connect_socket(params.addr, params.port)

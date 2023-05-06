@@ -4,7 +4,7 @@ import logging.handlers as lh
 logging.basicConfig(
     filename='logs/module.log',
     level=logging.DEBUG,
-    format="%(asctime)s: %(levelname)s <%(module)s> -- %(message)s"
+    format="%(asctime)s: %(levelname)s <%(name)s> -- %(message)s"
 )
 
 log = logging.getLogger('server')

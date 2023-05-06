@@ -4,6 +4,7 @@ from json_msgs import response_200_msg
 import argparse
 import logging
 import server_log_config
+from log_decor import logged
 
 logger = logging.getLogger('server')
 
@@ -18,8 +19,9 @@ def get_params():
     return args
 
 
+@logged(name='server')
 def run_socket(addr, port, listen_num: int = None):
-    logger.debug('Реализация сокета %s, порт: %d', addr, port)
+    # logger.debug('Реализация сокета %s, порт: %d', addr, port)
     s = socket(AF_INET, SOCK_STREAM)
     s.bind((addr, port))
     if listen_num:
@@ -27,14 +29,16 @@ def run_socket(addr, port, listen_num: int = None):
     return s
 
 
+@logged(name='server')
 def get_client(params):
-    logger.debug('подключение клиента %s, порт: %d', params.addr, params.port)
+    # logger.debug('подключение клиента %s, порт: %d', params.addr, params.port)
     client, addr = run_socket(params.addr, params.port, 5).accept()
     return client
 
 
+@logged(name='server')
 def get_msg(client):
-    logger.info('получение сообщения от клиента')
+    # logger.info('получение сообщения от клиента')
     print('Получаем запрос на соединение:', client)
     data = client.recv(100000)
     data_decoded = json.loads(data.decode('utf-8'))
@@ -43,7 +47,7 @@ def get_msg(client):
         client.close()
         return
     if data_decoded['action'] == 'presence':
-        logger.info('отправка ответа клиенту')
+        # logger.info('отправка ответа клиенту')
         msg = response_200_msg
         client.send(json.dumps(msg).encode('utf-8'))
     return data_decoded
@@ -53,6 +57,8 @@ def main():
     params = get_params()
     client = get_client(params)
     get_msg(client)
+    with open('logs/module.log', 'a', encoding='utf-8') as f:
+        f.write('-' * 100 + '\n')
 
 
 if __name__ == '__main__':
