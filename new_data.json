@@ -1,0 +1,8 @@
+{
+    "action": "msg",
+    "encoding": "ascii",
+    "from": "account_name",
+    "message": "message",
+    "time": "<unix timestamp>",
+    "to": "account_name"
+}
