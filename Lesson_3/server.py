@@ -23,7 +23,21 @@ def get_params():
     return args
 
 
+class DescriptorPort:
+    def __set__(self, instance, value):
+        if not 1023 < value < 65536:
+            logger.critical(
+                f'Server can not approve {value} port. Allowed address: from 1024 to 65535')
+            exit(1)
+        else:
+            instance.__dict__[self.name] = value
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+
 class Server(metaclass=ServerVerifier):
+    port = DescriptorPort()
 
     def __init__(self, address, port):
         self.addr = address
