@@ -1,6 +1,8 @@
 import json
 import sys
 from socket import *
+
+from Lesson_3.metaclasses import ClientVerifier
 from json_msgs import presence_msg
 import argparse
 import logging
@@ -12,23 +14,23 @@ from time import sleep
 logger = logging.getLogger('client')
 
 
-class Client(ClientVerifier):
+@logged(name='client')
+def get_params():
+    parser = argparse.ArgumentParser(description="port and address")
+
+    parser.add_argument("-a", dest="addr", default='localhost')
+    parser.add_argument("-p", dest="port", default=7777, type=int)
+    args = parser.parse_args()
+    return args
+
+
+class Client(metaclass=ClientVerifier):
 
     @logged(name='client')
-    def get_params(self):
-        parser = argparse.ArgumentParser(description="port and address")
-
-        parser.add_argument("-a", dest="addr", default='localhost')
-        parser.add_argument("-p", dest="port", default=7777, type=int)
-        args = parser.parse_args()
-        return args
-
-    @logged(name='client')
-    def main(self):
+    def main(self, param):
         try:
             s = socket(AF_INET, SOCK_STREAM)
-            params = self.get_params()
-            s.connect((params.addr, params.port))
+            s.connect((param.addr, param.port))
             msg_enc = json.dumps(presence_msg).encode('utf-8')
             logger.info('отправка сообщения от клиента')
             s.send(msg_enc)
@@ -55,7 +57,8 @@ class Client(ClientVerifier):
 
 if __name__ == '__main__':
     try:
+        params = get_params()
         client = Client
-        client.main()
+        client.main(params)
     except Exception as e:
         logger.error(e)

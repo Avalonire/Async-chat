@@ -12,6 +12,7 @@ import select
 logger = logging.getLogger('server')
 
 
+@logged(name='server')
 def get_params():
     parser = argparse.ArgumentParser(description="port and address")
 
@@ -50,10 +51,10 @@ class Server(metaclass=ServerVerifier):
         s = socket(AF_INET, SOCK_STREAM)
         s.bind((self.addr, self.port))
         s.settimeout(0.5)
-        self.s.listen(10)
+        s.listen(10)
 
     def main(self):
-        self.init_socket()
+        self.socket_init()
 
         while True:
             try:
