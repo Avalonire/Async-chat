@@ -3,11 +3,13 @@ from socket import *
 
 from metaclasses import ServerVerifier
 from json_msgs import response_200_msg
+from database import Storage
 import argparse
 import logging
 import server_log_config
 from log_decor import logged
 import select
+
 
 logger = logging.getLogger('server')
 
@@ -39,10 +41,12 @@ class DescriptorPort:
 class Server(metaclass=ServerVerifier):
     port = DescriptorPort()
 
-    def __init__(self, address, port):
+    def __init__(self, address, port, database):
+        self.socket = None
         self.addr = address
         self.port = port
         self.clients = []
+        self.database = database
 
     @logged(name='server')
     def get_msg(self, client):
@@ -66,18 +70,20 @@ class Server(metaclass=ServerVerifier):
         s.bind((self.addr, self.port))
         s.settimeout(0.5)
         s.listen(10)
+        self.socket = s
 
     def main(self):
         self.socket_init()
 
         while True:
             try:
-                client, client_address = s.accept()
+                client, client_address = self.socket.accept()
             except OSError:
                 pass
             else:
                 self.clients.append(client)
-
+                client_ip, client_port = client.getpeername()
+                self.database.user_login(client, client_ip, client_port)
             recv_data_lst = []
 
             try:
@@ -91,12 +97,14 @@ class Server(metaclass=ServerVerifier):
                         self.get_msg(client)
                     except Exception:
                         self.clients.remove(client)
+                        self.database.user_logout(client)
 
 
 if __name__ == '__main__':
     try:
+        database = Storage()
         params = get_params()
-        server = Server(params.addr, params.port)
+        server = Server(params.addr, params.port, database)
         server.main()
     except Exception as e:
         logger.error(e)
