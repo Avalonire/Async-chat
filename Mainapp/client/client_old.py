@@ -2,7 +2,7 @@ import json
 import sys
 from socket import *
 
-from Lesson_3.metaclasses import ClientVerifier
+from Mainapp.metaclasses import ClientVerifier
 from json_msgs import presence_msg
 import argparse
 import logging
