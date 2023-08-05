@@ -1,112 +1,103 @@
-import json
-from socket import *
-
-from metaclasses import ServerVerifier
-from json_msgs import response_200_msg
-from database import Storage
+import sys
+import os
 import argparse
 import logging
-import server_log_config
-from log_decor import logged
-import select
+import configparser
+import logs.config_server_log
+from common.utils import *
+from common.decos import log
+from server.core import MessageProcessor
+from server.database import ServerStorage
+from server.main_window import MainWindow
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import Qt
 
-
+# Инициализация логирования сервера.
 logger = logging.getLogger('server')
 
 
-@logged(name='server')
-def get_params():
-    parser = argparse.ArgumentParser(description="port and address")
-
-    parser.add_argument("-a", dest="addr", default='')
-    parser.add_argument("-p", dest="port", default=7777, type=int)
-
-    args = parser.parse_args()
-    return args
-
-
-class DescriptorPort:
-    def __set__(self, instance, value):
-        if not 1023 < value < 65536:
-            logger.critical(
-                f'Server can not approve {value} port. Allowed address: from 1024 to 65535')
-            exit(1)
-        else:
-            instance.__dict__[self.name] = value
-
-    def __set_name__(self, owner, name):
-        self.name = name
+@log
+def arg_parser(default_port, default_address):
+    '''Парсер аргументов коммандной строки.'''
+    logger.debug(
+        f'Инициализация парсера аргументов коммандной строки: {sys.argv}')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', default=default_port, type=int, nargs='?')
+    parser.add_argument('-a', default=default_address, nargs='?')
+    parser.add_argument('--no_gui', action='store_true')
+    namespace = parser.parse_args(sys.argv[1:])
+    listen_address = namespace.a
+    listen_port = namespace.p
+    gui_flag = namespace.no_gui
+    logger.debug('Аргументы успешно загружены.')
+    return listen_address, listen_port, gui_flag
 
 
-class Server(metaclass=ServerVerifier):
-    port = DescriptorPort()
+@log
+def config_load():
+    '''Парсер конфигурационного ini файла.'''
+    config = configparser.ConfigParser()
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    config.read(f"{dir_path}/{'server.ini'}")
+    # Если конфиг файл загружен правильно, запускаемся, иначе конфиг по
+    # умолчанию.
+    if 'SETTINGS' in config:
+        return config
+    else:
+        config.add_section('SETTINGS')
+        config.set('SETTINGS', 'Default_port', str(DEFAULT_PORT))
+        config.set('SETTINGS', 'Listen_Address', '')
+        config.set('SETTINGS', 'Database_path', '')
+        config.set('SETTINGS', 'Database_file', 'server_database.db3')
+        return config
 
-    def __init__(self, address, port, database):
-        self.socket = None
-        self.addr = address
-        self.port = port
-        self.clients = []
-        self.database = database
 
-    @logged(name='server')
-    def get_msg(self, client):
-        # logger.info('получение сообщения от клиента')
-        print('Получаем запрос на соединение:', client)
-        data = client.recv(100000)
-        data_decoded = json.loads(data.decode('utf-8'))
-        print('Было получено сообщение: ', data_decoded)
-        if data_decoded['action'] == 'quit':
-            client.close()
-            return
-        if data_decoded['action'] == 'presence':
-            # logger.info('отправка ответа клиенту')
-            msg = response_200_msg
-            client.send(json.dumps(msg).encode('utf-8'))
-        return data_decoded
+@log
+def main():
+    '''Основная функция'''
+    # Загрузка файла конфигурации сервера
+    config = config_load()
 
-    @logged(name='server')
-    def socket_init(self):
-        s = socket(AF_INET, SOCK_STREAM)
-        s.bind((self.addr, self.port))
-        s.settimeout(0.5)
-        s.listen(10)
-        self.socket = s
+    # Загрузка параметров командной строки, если нет параметров, то задаём
+    # значения по умоланию.
+    listen_address, listen_port, gui_flag = arg_parser(
+        config['SETTINGS']['Default_port'], config['SETTINGS']['Listen_Address'])
 
-    def main(self):
-        self.socket_init()
+    # Инициализация базы данных
+    database = ServerStorage(
+        os.path.join(
+            config['SETTINGS']['Database_path'],
+            config['SETTINGS']['Database_file']))
 
+    # Создание экземпляра класса - сервера и его запуск:
+    server = MessageProcessor(listen_address, listen_port, database)
+    server.daemon = True
+    server.start()
+
+    # Если  указан параметр без GUI то запускаем простенький обработчик
+    # консольного ввода
+    if gui_flag:
         while True:
-            try:
-                client, client_address = self.socket.accept()
-            except OSError:
-                pass
-            else:
-                self.clients.append(client)
-                client_ip, client_port = client.getpeername()
-                self.database.user_login(client, client_ip, client_port)
-            recv_data_lst = []
+            command = input('Введите exit для завершения работы сервера.')
+            if command == 'exit':
+                # Если выход, то завршаем основной цикл сервера.
+                server.running = False
+                server.join()
+                break
 
-            try:
-                if self.clients:
-                    recv_data_lst, send_data_lst, err_lst = select.select(self.clients, self.clients, [], 0)
-            except OSError:
-                pass
-            if recv_data_lst:
-                for client in recv_data_lst:
-                    try:
-                        self.get_msg(client)
-                    except Exception:
-                        self.clients.remove(client)
-                        self.database.user_logout(client)
+    # Если не указан запуск без GUI, то запускаем GUI:
+    else:
+        # Создаём графическое окуружение для сервера:
+        server_app = QApplication(sys.argv)
+        server_app.setAttribute(Qt.AA_DisableWindowContextHelpButton)
+        main_window = MainWindow(database, server, config)
+
+        # Запускаем GUI
+        server_app.exec_()
+
+        # По закрытию окон останавливаем обработчик сообщений
+        server.running = False
 
 
 if __name__ == '__main__':
-    try:
-        database = Storage()
-        params = get_params()
-        server = Server(params.addr, params.port, database)
-        server.main()
-    except Exception as e:
-        logger.error(e)
-    with open('logs/module.log', 'a', encoding='utf-8') as f:
-        f.write('-' * 100 + '\n')
+    main()
